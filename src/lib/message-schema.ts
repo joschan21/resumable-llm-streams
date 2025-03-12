@@ -66,7 +66,5 @@ export type ErrorMessage = z.infer<typeof errorMessageSchema>
 
 export const validateMessage = (data: unknown): Message | null => {
   const result = messageSchema.safeParse(data)
-  console.log('parse result', data, result);
-
   return result.success ? result.data : null
-} 
+}

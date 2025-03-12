@@ -30,7 +30,7 @@ export default function Home() {
     }
   }, [response])
 
-  useQuery({
+  const { refetch } = useQuery({
     queryKey: ["stream", sessionId],
     queryFn: async () => {
       if (!sessionId) return null
@@ -99,7 +99,7 @@ export default function Home() {
 
       return streamContent
     },
-    enabled: Boolean(sessionId),
+    enabled: false,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
@@ -118,6 +118,7 @@ export default function Home() {
     },
     onSuccess: () => {
       setStatus("streaming")
+      refetch()
     },
   })
 

@@ -8,7 +8,7 @@ import {
 } from "@/lib/message-schema"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 60
+export const maxDuration = 800
 export const runtime = "nodejs"
 
 type StreamField = string
@@ -43,22 +43,15 @@ export async function GET(req: NextRequest) {
   const streamKey = `llm:stream:${sessionId}`
   const groupName = `sse-group-${nanoid()}`
 
-  const keyExists = await redis.exists(streamKey)
-
-  if (!keyExists) {
-    return NextResponse.json(
-      { error: "Stream does not exist" },
-      { status: 404 }
-    )
-  }
-
   try {
     await redis.xgroup(streamKey, {
       type: "CREATE",
       group: groupName,
       id: "0",
     })
-  } catch (_err) {}
+  } catch (_err) {
+    // stream key doesnt exist (yet) or group already exists, which is OK
+  }
 
   const response = new Response(
     new ReadableStream({
@@ -76,8 +69,6 @@ export async function GET(req: NextRequest) {
             for (const [_messageId, fields] of messages) {
               const rawObj = arrToObj(fields)
               const validatedMessage = validateMessage(rawObj)
-
-              console.log("validated message", validatedMessage)
 
               if (validatedMessage) {
                 controller.enqueue(json(validatedMessage))
