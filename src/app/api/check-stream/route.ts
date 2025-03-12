@@ -8,7 +8,7 @@ import {
 } from "@/lib/message-schema"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 800
+export const maxDuration = 60
 export const runtime = "nodejs"
 
 type StreamField = string
@@ -43,15 +43,22 @@ export async function GET(req: NextRequest) {
   const streamKey = `llm:stream:${sessionId}`
   const groupName = `sse-group-${nanoid()}`
 
+  const keyExists = await redis.exists(streamKey)
+
+  if (!keyExists) {
+    return NextResponse.json(
+      { error: "Stream does not (yet) exist" },
+      { status: 412 }
+    )
+  }
+
   try {
     await redis.xgroup(streamKey, {
       type: "CREATE",
       group: groupName,
       id: "0",
     })
-  } catch (_err) {
-    // stream key doesnt exist (yet) or group already exists, which is OK
-  }
+  } catch (_err) {}
 
   const response = new Response(
     new ReadableStream({

@@ -11,6 +11,14 @@ import {
   StreamStatus,
 } from "@/lib/message-schema"
 
+// precondition = stream is ready to read
+class PreconditionFailedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "PreconditionFailedError"
+  }
+}
+
 export default function Home() {
   const { sessionId, regenerateSessionId, clearSessionId } = useLLMSession()
 
@@ -23,14 +31,35 @@ export default function Home() {
 
   const controller = useRef<AbortController | null>(null)
   const responseRef = useRef<HTMLDivElement>(null)
+  const isInitialRequest = useRef(true)
 
+  // keep generation in viewport
   useEffect(() => {
     if (responseRef.current) {
       responseRef.current.scrollTop = responseRef.current.scrollHeight
     }
   }, [response])
 
-  const { refetch } = useQuery({
+  const { mutate, error, isIdle } = useMutation({
+    mutationFn: async (newSessionId: string) => {
+      controller.current?.abort()
+      isInitialRequest.current = false
+
+      await fetch("/api/llm-stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt, sessionId: newSessionId }),
+      })
+    },
+    onSuccess: () => {
+      setStatus("streaming")
+      refetch()
+    },
+  })
+
+  const {refetch} = useQuery({
     queryKey: ["stream", sessionId],
     queryFn: async () => {
       if (!sessionId) return null
@@ -45,6 +74,11 @@ export default function Home() {
         headers: { "Content-Type": "text/event-stream" },
         signal: controller.current.signal,
       })
+
+      if (res.status === 412) {
+        // stream is not yet ready, retry connection
+        throw new PreconditionFailedError("Stream not ready yet")
+      }
 
       if (!res.body) return null
 
@@ -99,26 +133,16 @@ export default function Home() {
 
       return streamContent
     },
-    enabled: false,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-  })
+    retry(failureCount, error) {
+      if(isInitialRequest.current === true) return false
 
-  const { mutate, error } = useMutation({
-    mutationFn: async (newSessionId: string) => {
-      controller.current?.abort()
+      if (error instanceof PreconditionFailedError) {
+        return failureCount < 10
+      }
 
-      await fetch("/api/llm-stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt, sessionId: newSessionId }),
-      })
-    },
-    onSuccess: () => {
-      setStatus("streaming")
-      refetch()
+      return false
     },
   })
 
