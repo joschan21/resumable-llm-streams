@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 export const useLLMSession = () => {
   const [sessionId, setSessionId] = useState<string>("")
   const router = useRouter()
-  const nanoid = customAlphabet("0123456789", 2)
+  const nanoid = customAlphabet("0123456789", 6)
 
   const updateUrlWithSessionId = useCallback(
     (id: string) => {
