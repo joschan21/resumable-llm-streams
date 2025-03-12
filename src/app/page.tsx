@@ -20,7 +20,6 @@ export default function Home() {
   >("idle")
   const [response, setResponse] = useState("")
   const [chunkCount, setChunkCount] = useState(0)
-  const [isReset, setIsReset] = useState(false)
 
   const controller = useRef<AbortController | null>(null)
   const responseRef = useRef<HTMLDivElement>(null)
@@ -34,7 +33,7 @@ export default function Home() {
   useQuery({
     queryKey: ["stream", sessionId],
     queryFn: async () => {
-      if (!sessionId || isReset) return null
+      if (!sessionId) return null
 
       setResponse("")
       setChunkCount(0)
@@ -100,7 +99,7 @@ export default function Home() {
 
       return streamContent
     },
-    enabled: Boolean(sessionId) && !isReset,
+    enabled: Boolean(sessionId),
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
@@ -119,7 +118,6 @@ export default function Home() {
     },
     onSuccess: () => {
       setStatus("streaming")
-      setIsReset(false)
     },
   })
 
@@ -132,7 +130,6 @@ export default function Home() {
 
   const handleReset = () => {
     controller.current?.abort()
-    setIsReset(true)
     clearSessionId()
     setPrompt("")
     setResponse("")
@@ -186,7 +183,9 @@ export default function Home() {
         </form>
 
         <div className="mt-8">
-          <h2 className="text-xl tracking-tight font-semibold mb-2">Response:</h2>
+          <h2 className="text-xl tracking-tight font-semibold mb-2">
+            Response:
+          </h2>
           {status === "error" ? (
             <div className="p-4 bg-red-100 border border-red-300 rounded-md text-red-800">
               <p className="font-bold">Error:</p>
@@ -198,12 +197,15 @@ export default function Home() {
               response.
             </p>
           ) : (
-            <div ref={responseRef} className="flex flex-col h-96 overflow-y-auto p-4 bg-zinc-900 text-zinc-200 border border-zinc-800 rounded-md whitespace-pre-wrap [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-zinc-800">
+            <div
+              ref={responseRef}
+              className="flex flex-col h-96 overflow-y-auto p-4 bg-zinc-900 text-zinc-200 border border-zinc-800 rounded-md whitespace-pre-wrap [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-zinc-800"
+            >
               <div>{response || "Loading..."}</div>
             </div>
           )}
 
-          {(status === "streaming" || status === "completed") && !isReset && (
+          {(status === "streaming" || status === "completed") && (
             <div className="mt-2 text-sm text-gray-500">
               <p>Session ID: {sessionId}</p>
               <p>Status: {status}</p>
